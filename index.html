@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Chat - Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #2d3436;
+            --accent: #0984e3;
+            --background: #f5f6fa;
+            --surface: rgba(255, 255, 255, 0.98);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(45deg,
+                var(--background) 25%,
+                rgba(223, 230, 233, 0.8) 100%);
+            padding: 1rem;
+        }
+
+        .container {
+            background: var(--surface);
+            width: 95%;
+            max-width: 500px;
+            border-radius: 1.5rem;
+            box-shadow: 0 1rem 2rem rgba(0,0,0,0.1);
+            padding: 2rem;
+        }
+
+        .auth-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        input {
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(9, 132, 227, 0.1);
+            outline: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 1rem;
+            border: none;
+            border-radius: 0.75rem;
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(9, 132, 227, 0.3);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 1.5rem;
+                border-radius: 1rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="auth-section">
+            <h1>Chat Login</h1>
+            <div class="input-group">
+                <input type="email" id="email" placeholder="Email" required>
+                <input type="password" id="password" placeholder="Password" required>
+            </div>
+            <div class="button-group">
+                <button id="signIn">Sign In</button>
+                <button id="signUp">Create Account</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://azcdpclpkhljhmnnrbmo.supabase.co';
+        const SUPABASE_KEY = process.env.SUPABASE_KEY;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Auth Handlers
+        const handleAuth = async (isSignUp) => {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const { error } = isSignUp 
+                    ? await supabase.auth.signUp({ email, password })
+                    : await supabase.auth.signInWithPassword({ email, password });
+
+                if (error) throw error;
+                window.location.href = 'chat.html';
+            } catch (error) {
+                alert(`Authentication failed: ${error.message}`);
+            }
+        };
+
+        // Event Listeners
+        document.getElementById('signIn').addEventListener('click', () => handleAuth(false));
+        document.getElementById('signUp').addEventListener('click', () => handleAuth(true));
+    </script>
+</body>
+</html>

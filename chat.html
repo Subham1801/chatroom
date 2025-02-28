@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #2d3436;
+            --accent: #0984e3;
+            --background: #f8f9fa;
+            --online: #00b894;
+            --offline: #ff7675;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            flex: 1;
+            max-width: 1200px;
+            margin: 1rem auto;
+            width: 95%;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 1.5rem;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .online { background: var(--online); }
+        .offline { background: var(--offline); }
+
+        .messages-container {
+            height: 65vh;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 1rem 1.5rem;
+            border-radius: 1.25rem;
+            animation: messageIn 0.3s ease-out;
+            word-break: break-word;
+        }
+
+        .sent {
+            background: var(--accent);
+            color: white;
+            align-self: flex-end;
+        }
+
+        .received {
+            background: #f1f2f6;
+            align-self: flex-start;
+        }
+
+        .input-container {
+            padding: 1.5rem;
+            background: white;
+            display: flex;
+            gap: 1rem;
+            border-top: 1px solid #eee;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #eee;
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        button {
+            padding: 1rem 1.5rem;
+            border: none;
+            border-radius: 1rem;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes messageIn {
+            from { opacity: 0; transform: translateY(1rem); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                margin: 0;
+                width: 100%;
+                border-radius: 0;
+                height: 100vh;
+            }
+
+            .message {
+                max-width: 85%;
+                padding: 0.75rem 1rem;
+            }
+
+            .input-container {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="status-indicator">
+                <div class="status-dot online"></div>
+                <span>Online</span>
+            </div>
+            <button id="signOut">Sign Out</button>
+        </div>
+
+        <div class="messages-container" id="messagesContainer"></div>
+
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type your message...">
+            <button id="sendMessage">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://azcdpclpkhljhmnnrbmo.supabase.co';
+        const SUPABASE_KEY = process.env.SUPABASE_KEY;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // System Initialization
+        let realtimeChannel = null;
+
+        // Auth Check
+        const checkAuth = async () => {
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (!user) window.location.href = '/';
+            return user;
+        };
+
+        // Message Handling
+        const handleSendMessage = async () => {
+            try {
+                const message = document.getElementById('messageInput').value.trim();
+                if (!message) return;
+
+                const { data: { user } } = await supabase.auth.getUser();
+                const { error } = await supabase
+                    .from('messages')
+                    .insert([{ 
+                        text: message, 
+                        sender_id: user.id,
+                        created_at: new Date().toISOString()
+                    }]);
+
+                if (error) throw error;
+                document.getElementById('messageInput').value = '';
+            } catch (error) {
+                alert('Failed to send message');
+            }
+        };
+
+        // Realtime Setup
+        const setupRealtime = () => {
+            realtimeChannel = supabase
+                .channel('public:messages')
+                .on('postgres_changes', 
+                    { event: 'INSERT', schema: 'public', table: 'messages' },
+                    async (payload) => {
+                        const { data: sender } = await supabase
+                            .from('users')
+                            .select('email')
+                            .eq('id', payload.new.sender_id)
+                            .single();
+
+                        appendMessage({
+                            ...payload.new,
+                            sender_email: sender?.email || 'Unknown'
+                        });
+                    }
+                )
+                .subscribe();
+        };
+
+        // Message Display
+        const appendMessage = (message) => {
+            const container = document.getElementById('messagesContainer');
+            const { user } = supabase.auth.getUser();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.sender_id === user.id ? 'sent' : 'received'}`;
+            messageDiv.innerHTML = `
+                <div class="message-content">${message.text}</div>
+                <div class="message-meta">
+                    <span>${message.sender_email}</span>
+                    <span>${new Date(message.created_at).toLocaleTimeString()}</span>
+                </div>
+            `;
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        };
+
+        // Initialization
+        (async () => {
+            try {
+                const user = await checkAuth();
+                
+                // Load Message History
+                const { data: messages, error } = await supabase
+                    .from('messages')
+                    .select('*, users(email)')
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+                messages.forEach(appendMessage);
+                
+                setupRealtime();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                window.location.href = '/';
+            }
+        })();
+
+        // Event Listeners
+        document.getElementById('sendMessage').addEventListener('click', handleSendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSendMessage();
+        });
+        document.getElementById('signOut').addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            realtimeChannel?.unsubscribe();
+            window.location.href = '/';
+        });
+    </script>
+</body>
+</html>
