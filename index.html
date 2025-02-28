@@ -131,7 +131,7 @@
         
 import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = 'https://azcdpclpkhljhmnnrbmo.supabase.co'
-const supabaseKey = process.env.SUPABASE_KEY
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6Y2RwY2xwa2hsamhtbm5yYm1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA3NjQzNDQsImV4cCI6MjA1NjM0MDM0NH0.hx0uBFs4H_-JcDiJ7qm1TYO4EYV6NCJ3mX-FMkAx1Qo'
 const supabase = createClient(supabaseUrl, supabaseKey)
         // Auth Handlers
         const handleAuth = async (isSignUp) => {
